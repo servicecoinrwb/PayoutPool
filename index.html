@@ -523,6 +523,27 @@
             <div class="section-subtitle">Send USDC to multiple recipients</div>
           </div>
         </div>
+        
+        <!-- Batch Summary -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 0.5rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Available to Send</div>
+            <div id="availableToSend" style="font-size: 1.25rem; font-weight: bold; color: #fb923c;">0 USDC</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Recipients</div>
+            <div id="recipientCount" style="font-size: 1.25rem; font-weight: bold;">0</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Total to Send</div>
+            <div id="totalToSend" style="font-size: 1.25rem; font-weight: bold; color: #22c55e;">0 USDC</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Remaining After</div>
+            <div id="remainingAfter" style="font-size: 1.25rem; font-weight: bold;">0 USDC</div>
+          </div>
+        </div>
+        
         <div class="grid grid-2">
           <div>
             <label>Recipients CSV (address,amount)</label>
@@ -536,6 +557,7 @@
             </div>
             <button id="batchBtn" class="btn btn-primary" style="width: 100%;">Send Batch</button>
             <p id="pausedWarning" class="form-hint hidden" style="color: #fb923c; margin-top: 0.5rem;">Contract is paused</p>
+            <p id="insufficientWarning" class="form-hint hidden" style="color: #ef4444; margin-top: 0.5rem;">⚠️ Insufficient pool balance</p>
           </div>
         </div>
       </div>
@@ -765,6 +787,10 @@
       document.getElementById('userBalance').textContent = 
         parseFloat(formatUnits(state.userBalance, state.decimals)).toLocaleString() + ' USDC';
       
+      // Update available to send
+      document.getElementById('availableToSend').textContent = 
+        parseFloat(formatUnits(state.poolBalance, state.decimals)).toLocaleString() + ' USDC';
+      
       document.getElementById('contractStatus').textContent = state.paused ? 'Paused' : 'Active';
       document.getElementById('contractStatusSub').textContent = state.paused ? 'Payouts disabled' : 'Payouts enabled';
       document.getElementById('pausedWarning').classList.toggle('hidden', !state.paused);
@@ -785,6 +811,49 @@
       
       document.getElementById('poolAddr').disabled = !!state.account;
       document.getElementById('usdcAddr').disabled = !!state.account;
+      
+      // Update batch calculation when CSV changes
+      calculateBatchTotal();
+    }
+    
+    function calculateBatchTotal() {
+      const csv = document.getElementById('batchCsv').value;
+      if (!csv.trim()) {
+        document.getElementById('recipientCount').textContent = '0';
+        document.getElementById('totalToSend').textContent = '0 USDC';
+        document.getElementById('remainingAfter').textContent = 
+          parseFloat(formatUnits(state.poolBalance, state.decimals)).toLocaleString() + ' USDC';
+        document.getElementById('insufficientWarning').classList.add('hidden');
+        return;
+      }
+      
+      try {
+        const lines = csv.trim().split('\n').filter(l => l.trim());
+        let total = 0;
+        
+        for (const line of lines) {
+          const [addr, amt] = line.split(',').map(s => s.trim());
+          if (amt && !isNaN(parseFloat(amt))) {
+            total += parseFloat(amt);
+          }
+        }
+        
+        const poolBal = parseFloat(formatUnits(state.poolBalance, state.decimals));
+        const remaining = poolBal - total;
+        
+        document.getElementById('recipientCount').textContent = lines.length.toString();
+        document.getElementById('totalToSend').textContent = total.toLocaleString() + ' USDC';
+        document.getElementById('remainingAfter').textContent = remaining.toLocaleString() + ' USDC';
+        
+        // Show warning if insufficient balance
+        const insufficient = total > poolBal;
+        document.getElementById('insufficientWarning').classList.toggle('hidden', !insufficient);
+        document.getElementById('totalToSend').style.color = insufficient ? '#ef4444' : '#22c55e';
+        document.getElementById('remainingAfter').style.color = insufficient ? '#ef4444' : '#ffffff';
+        
+      } catch (err) {
+        console.error('Error calculating batch:', err);
+      }
     }
 
     // Contract calls
@@ -876,6 +945,7 @@
           return;
         }
         
+        console.log('Connecting wallet...');
         const accounts = await window.ethereum.request({ 
           method: 'eth_requestAccounts' 
         });
@@ -887,11 +957,14 @@
         state.chainId = parseInt(chainIdHex, 16);
         state.account = accounts[0];
         
+        console.log('Connected account:', state.account);
+        console.log('Chain ID:', state.chainId);
+        
         const isArbitrum = state.chainId === 42161 || state.chainId === 421614;
         document.getElementById('chainOkIcon').classList.toggle('hidden', !isArbitrum);
         
         if (!isArbitrum) {
-          showAlert('error', 'Please switch to Arbitrum network');
+          showAlert('error', `Please switch to Arbitrum network (current: ${state.chainId})`);
         } else {
           showAlert('success', 'Wallet connected successfully');
           await loadInfo();
@@ -906,11 +979,15 @@
         
         updateUI();
       } catch (err) {
+        console.error('Connection error:', err);
         showAlert('error', err.message || 'Failed to connect wallet');
       }
     };
 
     document.getElementById('refreshBtn').onclick = loadInfo;
+
+    // Add event listener for CSV changes to update batch calculation
+    document.getElementById('batchCsv').addEventListener('input', calculateBatchTotal);
 
     document.getElementById('depositBtn').onclick = async () => {
       const amount = document.getElementById('depositAmount').value;
@@ -954,16 +1031,25 @@
         
         const recipients = [];
         const amounts = [];
+        let totalAmount = 0;
         
         for (const line of lines) {
           const [addr, amt] = line.split(',').map(s => s.trim());
           if (!isValidAddress(addr)) throw new Error(`Invalid address: ${addr}`);
           recipients.push(addr);
-          amounts.push(parseUnits(amt, state.decimals));
+          const amountWei = parseUnits(amt, state.decimals);
+          amounts.push(amountWei);
+          totalAmount += parseFloat(amt);
+        }
+        
+        // Check if sufficient balance
+        const poolBal = parseFloat(formatUnits(state.poolBalance, state.decimals));
+        if (totalAmount > poolBal) {
+          throw new Error(`Insufficient balance. Need ${totalAmount} USDC but only have ${poolBal} USDC`);
         }
         
         const id = document.getElementById('payoutId').value || `payout-${Date.now()}`;
-        showAlert('info', `Sending batch payout to ${recipients.length} recipients...`);
+        showAlert('info', `Sending ${totalAmount.toFixed(2)} USDC to ${recipients.length} recipients...`);
         
         const poolAddr = document.getElementById('poolAddr').value;
         // FIXED: Correct parameter order for your contract: (string, address[], uint256[])
@@ -974,7 +1060,7 @@
         document.getElementById('lastTxLink').href = `https://arbiscan.io/tx/${txHash}`;
         document.getElementById('lastTxCard').classList.remove('hidden');
         
-        showAlert('success', `Batch payout sent to ${recipients.length} recipients!`);
+        showAlert('success', `Batch payout sent! Total: ${totalAmount.toFixed(2)} USDC to ${recipients.length} recipients`);
         document.getElementById('batchCsv').value = '';
         document.getElementById('payoutId').value = '';
         await loadInfo();
