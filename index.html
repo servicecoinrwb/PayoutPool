@@ -920,33 +920,61 @@
         console.log('Connected account:', state.account);
         
         // Load owner first to debug
-        const ownerData = await callContract(poolAddr, 'owner', []);
-        console.log('Raw owner data:', ownerData);
-        state.owner = decodeResult('address', ownerData);
-        console.log('Decoded owner:', state.owner);
-        console.log('Account:', state.account);
-        console.log('Match:', state.owner.toLowerCase() === state.account.toLowerCase());
+        try {
+          const ownerData = await callContract(poolAddr, 'owner', []);
+          console.log('Raw owner data:', ownerData);
+          state.owner = decodeResult('address', ownerData);
+          console.log('Decoded owner:', state.owner);
+          console.log('Account:', state.account);
+          console.log('Match:', state.owner.toLowerCase() === state.account.toLowerCase());
+        } catch (err) {
+          console.error('Error loading owner:', err);
+          throw new Error('Failed to load owner: ' + err.message);
+        }
         
-        // Load other data
-        const pausedData = await callContract(poolAddr, 'paused', []);
-        console.log('Raw paused data:', pausedData);
-        state.paused = decodeResult('bool', pausedData);
-        console.log('Paused:', state.paused);
+        // Load paused status
+        try {
+          const pausedData = await callContract(poolAddr, 'paused', []);
+          console.log('Raw paused data:', pausedData);
+          state.paused = decodeResult('bool', pausedData);
+          console.log('Paused:', state.paused);
+        } catch (err) {
+          console.error('Error loading paused status:', err);
+          throw new Error('Failed to load paused status: ' + err.message);
+        }
         
-        const balanceData = await callContract(poolAddr, 'getPoolBalance', []);
-        console.log('Raw pool balance data:', balanceData);
-        state.poolBalance = decodeResult('uint256', balanceData);
-        console.log('Pool balance (wei):', state.poolBalance);
+        // Load pool balance
+        try {
+          const balanceData = await callContract(poolAddr, 'getPoolBalance', []);
+          console.log('Raw pool balance data:', balanceData);
+          state.poolBalance = decodeResult('uint256', balanceData);
+          console.log('Pool balance (wei):', state.poolBalance);
+        } catch (err) {
+          console.error('Error loading pool balance:', err);
+          throw new Error('Failed to load pool balance: ' + err.message);
+        }
         
-        const decimalsData = await callContract(usdcAddr, 'decimals', []);
-        console.log('Raw decimals data:', decimalsData);
-        state.decimals = parseInt(decodeResult('uint8', decimalsData), 16);
-        console.log('Decimals:', state.decimals);
+        // Load decimals
+        try {
+          const decimalsData = await callContract(usdcAddr, 'decimals', []);
+          console.log('Raw decimals data:', decimalsData);
+          state.decimals = parseInt(decodeResult('uint8', decimalsData), 16);
+          console.log('Decimals:', state.decimals);
+        } catch (err) {
+          console.error('Error loading decimals:', err);
+          throw new Error('Failed to load decimals: ' + err.message);
+        }
         
-        const userBalData = await callContract(usdcAddr, 'balanceOf', ['address'], [state.account]);
-        console.log('Raw user balance data:', userBalData);
-        state.userBalance = decodeResult('uint256', userBalData);
-        console.log('User balance (wei):', state.userBalance);
+        // Load user balance
+        try {
+          const userBalData = await callContract(usdcAddr, 'balanceOf', ['address'], [state.account]);
+          console.log('Raw user balance data:', userBalData);
+          state.userBalance = decodeResult('uint256', userBalData);
+          console.log('User balance (wei):', state.userBalance);
+        } catch (err) {
+          console.error('Error loading user balance:', err);
+          throw new Error('Failed to load user balance: ' + err.message);
+        }
         
         console.log('=== Final State ===');
         console.log('Pool Balance:', formatUnits(state.poolBalance, state.decimals), 'USDC');
@@ -958,6 +986,7 @@
         showAlert('success', 'Contract data loaded successfully');
       } catch (err) {
         console.error('Failed to load contract data:', err);
+        console.error('Error stack:', err.stack);
         showAlert('error', `Failed to load contract data: ${err.message}`);
       }
     }
