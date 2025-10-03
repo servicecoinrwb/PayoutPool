@@ -821,9 +821,16 @@
     }
 
     function parseUnits(value, decimals) {
-      const [whole, fraction = ''] = value.split('.');
+      if (!value || value === '') {
+        console.error('parseUnits received empty value:', value);
+        return '0x0';
+      }
+      const valueStr = value.toString();
+      const [whole, fraction = ''] = valueStr.split('.');
       const paddedFraction = fraction.padEnd(decimals, '0').slice(0, decimals);
-      return '0x' + (BigInt(whole) * BigInt(10 ** decimals) + BigInt(paddedFraction)).toString(16);
+      const result = '0x' + (BigInt(whole || '0') * BigInt(10 ** decimals) + BigInt(paddedFraction || '0')).toString(16);
+      console.log('parseUnits:', value, '->', result);
+      return result;
     }
 
     function isValidAddress(address) {
@@ -1219,7 +1226,10 @@
 
     document.getElementById('batchBtn').onclick = async () => {
       const csv = document.getElementById('batchCsv').value;
-      if (!csv) return;
+      if (!csv) {
+        showAlert('error', 'Please enter recipient addresses and amounts');
+        return;
+      }
       
       setBusy(true);
       try {
@@ -1231,26 +1241,56 @@
         const amounts = [];
         let totalAmount = 0;
         
-        for (const line of lines) {
-          const [addr, amt] = line.split(',').map(s => s.trim());
-          if (!isValidAddress(addr)) throw new Error(`Invalid address: ${addr}`);
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const parts = line.split(',').map(s => s.trim());
+          
+          if (parts.length !== 2) {
+            throw new Error(`Line ${i + 1}: Invalid format. Expected: address,amount`);
+          }
+          
+          const [addr, amt] = parts;
+          
+          if (!addr || addr === '') {
+            throw new Error(`Line ${i + 1}: Missing address`);
+          }
+          
+          if (!isValidAddress(addr)) {
+            throw new Error(`Line ${i + 1}: Invalid address: ${addr}`);
+          }
+          
+          if (!amt || amt === '' || isNaN(parseFloat(amt))) {
+            throw new Error(`Line ${i + 1}: Invalid amount: ${amt}`);
+          }
+          
+          const amountFloat = parseFloat(amt);
+          if (amountFloat <= 0) {
+            throw new Error(`Line ${i + 1}: Amount must be greater than 0`);
+          }
+          
           recipients.push(addr);
           const amountWei = parseUnits(amt, state.decimals);
           amounts.push(amountWei);
-          totalAmount += parseFloat(amt);
+          totalAmount += amountFloat;
         }
         
         // Check if sufficient balance
         const poolBal = parseFloat(formatUnits(state.poolBalance, state.decimals));
         if (totalAmount > poolBal) {
-          throw new Error(`Insufficient balance. Need ${totalAmount} USDC but only have ${poolBal} USDC`);
+          throw new Error(`Insufficient balance. Need ${totalAmount.toFixed(2)} USDC but only have ${poolBal.toFixed(2)} USDC`);
         }
         
         const id = document.getElementById('payoutId').value || `payout-${Date.now()}`;
         showAlert('info', `Sending ${totalAmount.toFixed(2)} USDC to ${recipients.length} recipients...`);
         
+        console.log('Batch payout details:', {
+          id,
+          recipients,
+          amounts: amounts.map(a => a.toString()),
+          total: totalAmount
+        });
+        
         const poolAddr = document.getElementById('poolAddr').value;
-        // FIXED: Correct parameter order for your contract: (string, address[], uint256[])
         const txHash = await sendTransaction(poolAddr, 'batchPayout', 
           ['string', 'address[]', 'uint256[]'], [id, recipients, amounts]);
         
