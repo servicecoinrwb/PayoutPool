@@ -391,10 +391,11 @@
         </div>
       </div>
       <div class="header-right">
-        <button id="refreshBtn" class="btn btn-outline">
+        <button id="refreshBtn" class="btn btn-outline" title="Refresh balances">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
+          <span>Refresh</span>
         </button>
         <button id="connectBtn" class="btn btn-primary">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -747,13 +748,22 @@
     }
 
     function formatUnits(value, decimals) {
+      // Handle hex string
+      if (typeof value === 'string' && value.startsWith('0x')) {
+        value = BigInt(value);
+      } else if (typeof value === 'string') {
+        value = BigInt(value);
+      }
+      
       const num = BigInt(value);
       const divisor = BigInt(10 ** decimals);
       const whole = num / divisor;
       const remainder = num % divisor;
       const remainderStr = remainder.toString().padStart(decimals, '0');
       const trimmed = remainderStr.replace(/0+$/, '') || '0';
-      return `${whole}.${trimmed}`;
+      const result = `${whole}.${trimmed}`;
+      console.log('formatUnits:', value, '->', result);
+      return result;
     }
 
     function parseUnits(value, decimals) {
@@ -904,7 +914,9 @@
         const poolAddr = document.getElementById('poolAddr').value;
         const usdcAddr = document.getElementById('usdcAddr').value;
         
-        console.log('Loading contract data for pool:', poolAddr);
+        console.log('=== Loading contract data ===');
+        console.log('Pool address:', poolAddr);
+        console.log('USDC address:', usdcAddr);
         console.log('Connected account:', state.account);
         
         // Load owner first to debug
@@ -916,19 +928,32 @@
         console.log('Match:', state.owner.toLowerCase() === state.account.toLowerCase());
         
         // Load other data
-        const [paused, balance, decimals, userBal] = await Promise.all([
-          callContract(poolAddr, 'paused', []),
-          callContract(poolAddr, 'getPoolBalance', []),
-          callContract(usdcAddr, 'decimals', []),
-          callContract(usdcAddr, 'balanceOf', ['address'], [state.account])
-        ]);
+        const pausedData = await callContract(poolAddr, 'paused', []);
+        console.log('Raw paused data:', pausedData);
+        state.paused = decodeResult('bool', pausedData);
+        console.log('Paused:', state.paused);
         
-        state.paused = decodeResult('bool', paused);
-        state.poolBalance = decodeResult('uint256', balance);
-        state.decimals = parseInt(decodeResult('uint8', decimals), 16);
-        state.userBalance = decodeResult('uint256', userBal);
+        const balanceData = await callContract(poolAddr, 'getPoolBalance', []);
+        console.log('Raw pool balance data:', balanceData);
+        state.poolBalance = decodeResult('uint256', balanceData);
+        console.log('Pool balance (wei):', state.poolBalance);
         
-        console.log('State loaded:', state);
+        const decimalsData = await callContract(usdcAddr, 'decimals', []);
+        console.log('Raw decimals data:', decimalsData);
+        state.decimals = parseInt(decodeResult('uint8', decimalsData), 16);
+        console.log('Decimals:', state.decimals);
+        
+        const userBalData = await callContract(usdcAddr, 'balanceOf', ['address'], [state.account]);
+        console.log('Raw user balance data:', userBalData);
+        state.userBalance = decodeResult('uint256', userBalData);
+        console.log('User balance (wei):', state.userBalance);
+        
+        console.log('=== Final State ===');
+        console.log('Pool Balance:', formatUnits(state.poolBalance, state.decimals), 'USDC');
+        console.log('User Balance:', formatUnits(state.userBalance, state.decimals), 'USDC');
+        console.log('Owner:', state.owner);
+        console.log('Paused:', state.paused);
+        
         updateUI();
         showAlert('success', 'Contract data loaded successfully');
       } catch (err) {
@@ -999,10 +1024,12 @@
         const usdcAddr = document.getElementById('usdcAddr').value;
         const amt = parseUnits(amount, state.decimals);
         
-        showAlert('info', 'Approving USDC...');
+        console.log('Depositing amount:', amount, 'as wei:', amt);
+        
+        showAlert('info', 'Step 1/2: Approving USDC...');
         await sendTransaction(usdcAddr, 'approve', ['address', 'uint256'], [poolAddr, amt]);
         
-        showAlert('info', 'Depositing USDC...');
+        showAlert('info', 'Step 2/2: Depositing USDC...');
         const txHash = await sendTransaction(poolAddr, 'deposit', ['uint256'], [amt]);
         
         document.getElementById('lastTxLink').textContent = `${txHash.slice(0,8)}...${txHash.slice(-6)} ↗`;
@@ -1011,8 +1038,13 @@
         
         showAlert('success', `Deposited ${amount} USDC successfully!`);
         document.getElementById('depositAmount').value = '';
+        
+        // Wait a bit then refresh
+        showAlert('info', 'Refreshing balances...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await loadInfo();
       } catch (err) {
+        console.error('Deposit error:', err);
         showAlert('error', err.message || 'Deposit failed');
       } finally {
         setBusy(false);
