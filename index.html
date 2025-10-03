@@ -628,20 +628,42 @@
       busy: false
     };
 
-    // ABI encoding helpers
-    function keccak256Simple(str) {
+    // Known function selectors for your contract
+    const FUNCTION_SELECTORS = {
+      'owner()': '0x8da5cb5b',
+      'paused()': '0x5c975abb',
+      'getPoolBalance()': '0x4ab91f55',
+      'decimals()': '0x313ce567',
+      'balanceOf(address)': '0x70a08231',
+      'approve(address,uint256)': '0x095ea7b3',
+      'deposit(uint256)': '0xb6b55f25',
+      'batchPayout(string,address[],uint256[])': '0x8b0e9f3f',
+      'pause()': '0x8456cb59',
+      'unpause()': '0x3f4ba83a',
+      'emergencyWithdraw()': '0xdb2e21bc',
+      'transferOwnership(address)': '0xf2fde38b'
+    };
+
+    function getSelector(method, paramTypes) {
+      const sig = `${method}(${paramTypes.join(',')})`;
+      
+      // Try to find in known selectors first
+      if (FUNCTION_SELECTORS[sig]) {
+        return FUNCTION_SELECTORS[sig].slice(2);
+      }
+      
+      // Fallback to simple hash
       let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      for (let i = 0; i < sig.length; i++) {
+        hash = ((hash << 5) - hash) + sig.charCodeAt(i);
         hash = hash & hash;
       }
-      return Math.abs(hash).toString(16).padStart(64, '0');
+      return Math.abs(hash).toString(16).padStart(8, '0');
     }
 
     function encodeFunction(method, paramTypes, params) {
-      const sig = `${method}(${paramTypes.join(',')})`;
-      const hash = keccak256Simple(sig);
-      const selector = hash.slice(0, 8);
+      const selector = getSelector(method, paramTypes);
+      console.log('Encoding function:', method, 'selector:', selector);
       
       let encoded = '';
       let dynamicData = '';
@@ -684,7 +706,9 @@
         }
       }
       
-      return '0x' + selector + encoded + dynamicData;
+      const fullData = '0x' + selector + encoded + dynamicData;
+      console.log('Encoded data:', fullData);
+      return fullData;
     }
 
     function decodeResult(type, data) {
@@ -811,24 +835,36 @@
         const poolAddr = document.getElementById('poolAddr').value;
         const usdcAddr = document.getElementById('usdcAddr').value;
         
-        const [owner, paused, balance, decimals, userBal] = await Promise.all([
-          callContract(poolAddr, 'owner', []),
+        console.log('Loading contract data for pool:', poolAddr);
+        console.log('Connected account:', state.account);
+        
+        // Load owner first to debug
+        const ownerData = await callContract(poolAddr, 'owner', []);
+        console.log('Raw owner data:', ownerData);
+        state.owner = decodeResult('address', ownerData);
+        console.log('Decoded owner:', state.owner);
+        console.log('Account:', state.account);
+        console.log('Match:', state.owner.toLowerCase() === state.account.toLowerCase());
+        
+        // Load other data
+        const [paused, balance, decimals, userBal] = await Promise.all([
           callContract(poolAddr, 'paused', []),
           callContract(poolAddr, 'getPoolBalance', []),
           callContract(usdcAddr, 'decimals', []),
           callContract(usdcAddr, 'balanceOf', ['address'], [state.account])
         ]);
         
-        state.owner = decodeResult('address', owner);
         state.paused = decodeResult('bool', paused);
         state.poolBalance = decodeResult('uint256', balance);
         state.decimals = parseInt(decodeResult('uint8', decimals), 16);
         state.userBalance = decodeResult('uint256', userBal);
         
+        console.log('State loaded:', state);
         updateUI();
+        showAlert('success', 'Contract data loaded successfully');
       } catch (err) {
-        console.error('Failed to load:', err);
-        showAlert('error', 'Failed to load contract data');
+        console.error('Failed to load contract data:', err);
+        showAlert('error', `Failed to load contract data: ${err.message}`);
       }
     }
 
