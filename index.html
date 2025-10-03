@@ -655,7 +655,7 @@
     const FUNCTION_SELECTORS = {
       'owner()': '0x8da5cb5b',
       'paused()': '0x5c975abb',
-      'getPoolBalance()': '0x4ab91f55',
+      'usdcToken()': '0x68b090f8',  // This returns the USDC token address
       'decimals()': '0x313ce567',
       'balanceOf(address)': '0x70a08231',
       'approve(address,uint256)': '0x095ea7b3',
@@ -943,9 +943,10 @@
           throw new Error('Failed to load paused status: ' + err.message);
         }
         
-        // Load pool balance
+        // Load pool balance - use USDC balanceOf for the pool contract
         try {
-          const balanceData = await callContract(poolAddr, 'getPoolBalance', []);
+          console.log('Getting pool balance by checking USDC balance of pool contract...');
+          const balanceData = await callContract(usdcAddr, 'balanceOf', ['address'], [poolAddr]);
           console.log('Raw pool balance data:', balanceData);
           state.poolBalance = decodeResult('uint256', balanceData);
           console.log('Pool balance (wei):', state.poolBalance);
