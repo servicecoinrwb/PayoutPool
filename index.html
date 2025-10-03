@@ -775,22 +775,30 @@
 
     async function sendTransaction(address, method, paramTypes, params = []) {
       const data = encodeFunction(method, paramTypes, params);
+      console.log('Sending transaction:', method, 'with data:', data);
       const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
           from: state.account,
           to: address,
-          data: data
+          data: data,
+          gas: '0x' + (500000).toString(16) // Add explicit gas limit
         }]
       });
       
       let receipt = null;
-      while (!receipt) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      let attempts = 0;
+      while (!receipt && attempts < 60) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         receipt = await window.ethereum.request({
           method: 'eth_getTransactionReceipt',
           params: [txHash]
         });
+        attempts++;
+      }
+      
+      if (!receipt) {
+        throw new Error('Transaction timeout - please check your wallet');
       }
       
       return txHash;
@@ -922,8 +930,9 @@
         showAlert('info', `Sending batch payout to ${recipients.length} recipients...`);
         
         const poolAddr = document.getElementById('poolAddr').value;
+        // FIXED: Correct parameter order for your contract: (string, address[], uint256[])
         const txHash = await sendTransaction(poolAddr, 'batchPayout', 
-          ['address[]', 'uint256[]', 'string'], [recipients, amounts, id]);
+          ['string', 'address[]', 'uint256[]'], [id, recipients, amounts]);
         
         document.getElementById('lastTxLink').textContent = `${txHash.slice(0,8)}...${txHash.slice(-6)} ↗`;
         document.getElementById('lastTxLink').href = `https://arbiscan.io/tx/${txHash}`;
@@ -934,6 +943,7 @@
         document.getElementById('payoutId').value = '';
         await loadInfo();
       } catch (err) {
+        console.error('Batch error:', err);
         showAlert('error', err.message || 'Batch payout failed');
       } finally {
         setBusy(false);
@@ -963,16 +973,18 @@
       try {
         const poolAddr = document.getElementById('poolAddr').value;
         const amt = parseUnits(amount, state.decimals);
-        const txHash = await sendTransaction(poolAddr, 'withdraw', ['uint256'], [amt]);
+        // Using emergencyWithdraw which takes no parameters
+        const txHash = await sendTransaction(poolAddr, 'emergencyWithdraw', []);
         
         document.getElementById('lastTxLink').textContent = `${txHash.slice(0,8)}...${txHash.slice(-6)} ↗`;
         document.getElementById('lastTxLink').href = `https://arbiscan.io/tx/${txHash}`;
         document.getElementById('lastTxCard').classList.remove('hidden');
         
-        showAlert('success', `Withdrawn ${amount} USDC`);
+        showAlert('success', `Emergency withdrawal completed`);
         document.getElementById('withdrawAmount').value = '';
         await loadInfo();
       } catch (err) {
+        console.error('Withdraw error:', err);
         showAlert('error', err.message || 'Withdrawal failed');
       } finally {
         setBusy(false);
