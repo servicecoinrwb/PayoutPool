@@ -521,43 +521,97 @@
           </div>
           <div>
             <div class="section-title">Batch Payout</div>
-            <div class="section-subtitle">Send USDC to multiple recipients</div>
+            <div class="section-subtitle">Send USDC to multiple recipients at once</div>
+          </div>
+        </div>
+        
+        <!-- How it works -->
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 0.5rem;">
+          <div style="font-weight: 600; margin-bottom: 0.5rem; color: #60a5fa;">📋 How Batch Payouts Work</div>
+          <div style="font-size: 0.875rem; color: #9ca3af; line-height: 1.6;">
+            • <strong>One Transaction:</strong> Send USDC to up to 75 recipients in a single transaction<br>
+            • <strong>Format:</strong> Each line should be: wallet_address,amount<br>
+            • <strong>Gas Savings:</strong> Much cheaper than sending individually<br>
+            • <strong>Example:</strong> 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,50.00<br>
+            • <strong>Amount:</strong> Use decimal format (e.g., 100.50 for 100.5 USDC)
+          </div>
+        </div>
+        
+        <!-- Quick Calculator -->
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 0.5rem;">
+          <div style="font-weight: 600; margin-bottom: 0.75rem; color: #fb923c;">🧮 Quick Batch Calculator</div>
+          <div class="grid grid-2" style="gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div>
+              <label style="font-size: 0.75rem; margin-bottom: 0.25rem;">Recipients</label>
+              <input id="calcRecipients" type="number" placeholder="10" min="1" max="75" style="width: 100%; padding: 0.5rem; background: #27272a; border: 1px solid #3f3f46; border-radius: 0.375rem; color: white; font-size: 0.875rem;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; margin-bottom: 0.25rem;">Amount per recipient</label>
+              <input id="calcAmount" type="number" placeholder="100.00" step="0.01" min="0" style="width: 100%; padding: 0.5rem; background: #27272a; border: 1px solid #3f3f46; border-radius: 0.375rem; color: white; font-size: 0.875rem;">
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: rgba(0, 0, 0, 0.3); border-radius: 0.375rem;">
+            <div style="flex: 1;">
+              <div style="font-size: 0.75rem; color: #9ca3af;">Total Required</div>
+              <div id="calcTotal" style="font-size: 1.25rem; font-weight: bold; color: #22c55e;">0 USDC</div>
+            </div>
+            <button id="calcGenerate" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+              Generate Template
+            </button>
           </div>
         </div>
         
         <!-- Batch Summary -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 0.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 0.5rem;">
           <div>
             <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Available to Send</div>
-            <div id="availableToSend" style="font-size: 1.25rem; font-weight: bold; color: #fb923c;">0 USDC</div>
+            <div id="availableToSend" style="font-size: 1.125rem; font-weight: bold; color: #22c55e;">0 USDC</div>
           </div>
           <div>
             <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Recipients</div>
-            <div id="recipientCount" style="font-size: 1.25rem; font-weight: bold;">0</div>
+            <div id="recipientCount" style="font-size: 1.125rem; font-weight: bold;">0</div>
           </div>
           <div>
             <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Total to Send</div>
-            <div id="totalToSend" style="font-size: 1.25rem; font-weight: bold; color: #22c55e;">0 USDC</div>
+            <div id="totalToSend" style="font-size: 1.125rem; font-weight: bold; color: #60a5fa;">0 USDC</div>
           </div>
           <div>
             <div style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem;">Remaining After</div>
-            <div id="remainingAfter" style="font-size: 1.25rem; font-weight: bold;">0 USDC</div>
+            <div id="remainingAfter" style="font-size: 1.125rem; font-weight: bold;">0 USDC</div>
           </div>
+        </div>
+        
+        <!-- Breakdown Table -->
+        <div id="breakdownTable" class="hidden" style="margin-bottom: 1.5rem; max-height: 300px; overflow-y: auto; border: 1px solid #3f3f46; border-radius: 0.5rem;">
+          <table style="width: 100%; font-size: 0.875rem;">
+            <thead style="background: #27272a; position: sticky; top: 0;">
+              <tr>
+                <th style="padding: 0.75rem; text-align: left; color: #9ca3af; font-weight: 600;">#</th>
+                <th style="padding: 0.75rem; text-align: left; color: #9ca3af; font-weight: 600;">Recipient</th>
+                <th style="padding: 0.75rem; text-align: right; color: #9ca3af; font-weight: 600;">Amount</th>
+                <th style="padding: 0.75rem; text-align: right; color: #9ca3af; font-weight: 600;">% of Total</th>
+              </tr>
+            </thead>
+            <tbody id="breakdownBody" style="background: #18181b;">
+            </tbody>
+          </table>
         </div>
         
         <div class="grid grid-2">
           <div>
             <label>Recipients CSV (address,amount)</label>
-            <textarea id="batchCsv" rows="6" placeholder="0x1234...5678,100.50&#10;0xabcd...efgh,250.00"></textarea>
-            <div class="form-hint">Max 75 recipients • One per line • Amounts in USDC</div>
+            <textarea id="batchCsv" rows="8" placeholder="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb,100.50&#10;0x1234567890123456789012345678901234567890,250.00&#10;0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,75.25" style="font-family: 'Courier New', monospace; font-size: 0.8rem;"></textarea>
+            <div class="form-hint">Max 75 recipients • Format: address,amount • One per line</div>
           </div>
           <div>
             <div class="form-group">
               <label>Payout ID (optional)</label>
-              <input id="payoutId" type="text" placeholder="friday-payroll">
+              <input id="payoutId" type="text" placeholder="friday-payroll-2025-01-03">
+              <div class="form-hint" style="margin-top: 0.25rem;">Used to track this batch on-chain</div>
             </div>
-            <button id="batchBtn" class="btn btn-primary" style="width: 100%;">Send Batch</button>
-            <p id="pausedWarning" class="form-hint hidden" style="color: #fb923c; margin-top: 0.5rem;">Contract is paused</p>
+            <button id="batchBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;">Send Batch</button>
+            <button id="clearBatch" class="btn btn-outline" style="width: 100%;">Clear All</button>
+            <p id="pausedWarning" class="form-hint hidden" style="color: #fb923c; margin-top: 0.5rem;">⚠️ Contract is paused</p>
             <p id="insufficientWarning" class="form-hint hidden" style="color: #ef4444; margin-top: 0.5rem;">⚠️ Insufficient pool balance</p>
           </div>
         </div>
@@ -834,17 +888,25 @@
         document.getElementById('remainingAfter').textContent = 
           parseFloat(formatUnits(state.poolBalance, state.decimals)).toLocaleString() + ' USDC';
         document.getElementById('insufficientWarning').classList.add('hidden');
+        document.getElementById('breakdownTable').classList.add('hidden');
         return;
       }
       
       try {
         const lines = csv.trim().split('\n').filter(l => l.trim());
         let total = 0;
+        const recipients = [];
         
-        for (const line of lines) {
-          const [addr, amt] = line.split(',').map(s => s.trim());
+        for (let i = 0; i < lines.length; i++) {
+          const [addr, amt] = lines[i].split(',').map(s => s.trim());
           if (amt && !isNaN(parseFloat(amt))) {
-            total += parseFloat(amt);
+            const amount = parseFloat(amt);
+            total += amount;
+            recipients.push({
+              index: i + 1,
+              address: addr,
+              amount: amount
+            });
           }
         }
         
@@ -852,17 +914,54 @@
         const remaining = poolBal - total;
         
         document.getElementById('recipientCount').textContent = lines.length.toString();
-        document.getElementById('totalToSend').textContent = total.toLocaleString() + ' USDC';
-        document.getElementById('remainingAfter').textContent = remaining.toLocaleString() + ' USDC';
+        document.getElementById('totalToSend').textContent = total.toFixed(2) + ' USDC';
+        document.getElementById('remainingAfter').textContent = remaining.toFixed(2) + ' USDC';
         
         // Show warning if insufficient balance
         const insufficient = total > poolBal;
         document.getElementById('insufficientWarning').classList.toggle('hidden', !insufficient);
-        document.getElementById('totalToSend').style.color = insufficient ? '#ef4444' : '#22c55e';
+        document.getElementById('totalToSend').style.color = insufficient ? '#ef4444' : '#60a5fa';
         document.getElementById('remainingAfter').style.color = insufficient ? '#ef4444' : '#ffffff';
+        
+        // Build breakdown table
+        if (recipients.length > 0) {
+          document.getElementById('breakdownTable').classList.remove('hidden');
+          const tbody = document.getElementById('breakdownBody');
+          tbody.innerHTML = '';
+          
+          recipients.forEach(r => {
+            const percentage = ((r.amount / total) * 100).toFixed(1);
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid #27272a';
+            row.innerHTML = `
+              <td style="padding: 0.5rem; color: #9ca3af;">${r.index}</td>
+              <td style="padding: 0.5rem; font-family: monospace; font-size: 0.75rem;">${r.address.slice(0,8)}...${r.address.slice(-6)}</td>
+              <td style="padding: 0.5rem; text-align: right; font-weight: 600;">${r.amount.toFixed(2)} USDC</td>
+              <td style="padding: 0.5rem; text-align: right; color: #60a5fa;">${percentage}%</td>
+            `;
+            tbody.appendChild(row);
+          });
+        } else {
+          document.getElementById('breakdownTable').classList.add('hidden');
+        }
         
       } catch (err) {
         console.error('Error calculating batch:', err);
+      }
+    }
+    
+    function updateCalculator() {
+      const recipients = parseInt(document.getElementById('calcRecipients').value) || 0;
+      const amount = parseFloat(document.getElementById('calcAmount').value) || 0;
+      const total = recipients * amount;
+      
+      document.getElementById('calcTotal').textContent = total.toFixed(2) + ' USDC';
+      
+      const poolBal = parseFloat(formatUnits(state.poolBalance, state.decimals));
+      if (total > poolBal && total > 0) {
+        document.getElementById('calcTotal').style.color = '#ef4444';
+      } else {
+        document.getElementById('calcTotal').style.color = '#22c55e';
       }
     }
 
@@ -1043,6 +1142,43 @@
 
     // Add event listener for CSV changes to update batch calculation
     document.getElementById('batchCsv').addEventListener('input', calculateBatchTotal);
+    
+    // Calculator event listeners
+    document.getElementById('calcRecipients').addEventListener('input', updateCalculator);
+    document.getElementById('calcAmount').addEventListener('input', updateCalculator);
+    
+    // Generate template button
+    document.getElementById('calcGenerate').onclick = () => {
+      const recipients = parseInt(document.getElementById('calcRecipients').value) || 0;
+      const amount = parseFloat(document.getElementById('calcAmount').value) || 0;
+      
+      if (recipients <= 0 || amount <= 0) {
+        showAlert('error', 'Please enter valid recipients and amount');
+        return;
+      }
+      
+      if (recipients > 75) {
+        showAlert('error', 'Maximum 75 recipients per batch');
+        return;
+      }
+      
+      // Generate template CSV
+      let template = '';
+      for (let i = 0; i < recipients; i++) {
+        template += `0x0000000000000000000000000000000000000000,${amount.toFixed(2)}\n`;
+      }
+      
+      document.getElementById('batchCsv').value = template;
+      calculateBatchTotal();
+      showAlert('info', `Generated template for ${recipients} recipients at ${amount} USDC each. Replace the addresses with real wallet addresses.`);
+    };
+    
+    // Clear batch button
+    document.getElementById('clearBatch').onclick = () => {
+      document.getElementById('batchCsv').value = '';
+      document.getElementById('payoutId').value = '';
+      calculateBatchTotal();
+    };
 
     document.getElementById('depositBtn').onclick = async () => {
       const amount = document.getElementById('depositAmount').value;
